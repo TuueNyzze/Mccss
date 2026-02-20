@@ -10,6 +10,7 @@ import { jwtAuth } from './core/middleware/auth.js';
 import { validateTaskPayload } from './core/middleware/validation.js';
 import { registerSyncTask } from './core/tasks/sync-task.js';
 import governance from './core/governance.js';
+import mobileApi from './core/mobile-api.js';
 
 const logger = pino({ level: process.env.LOG_LEVEL || 'info' });
 
@@ -48,6 +49,17 @@ app.use((req, res, next) => {
   } catch (e) { /* best-effort */ }
   next();
 });
+
+// Minimal CORS so mobile UI served from another port can call these endpoints
+app.use((req, res, next) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  if (req.method === 'OPTIONS') return res.sendStatus(204);
+  next();
+});
+
+// Mount mobile API router (chat, patch drafting, action queue)
+app.use('/mobile', mobileApi);
 
 // Simple task endpoints (protected)
 const auth = jwtAuth();

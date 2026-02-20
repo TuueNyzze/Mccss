@@ -1,5 +1,7 @@
 # Mccss
 
+[![E2E Demo](https://github.com/TuueNyzze/Mccss/actions/workflows/e2e-demo.yml/badge.svg)](https://github.com/TuueNyzze/Mccss/actions/workflows/e2e-demo.yml)
+
 Unified demo for the MCCSS substrate (backend) and the Edenfield admin/frontend (UI).
 
 Prerequisites

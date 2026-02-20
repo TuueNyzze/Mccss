@@ -1,0 +1,116 @@
+name: E2E Demo
+
+on:
+  workflow_dispatch:
+  pull_request:
+
+jobs:
+  e2e:
+    name: Run E2E demo (build, start, test, teardown)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Set up QEMU/buildx (for cross-platform builds)
+        uses: docker/setup-qemu-action@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Verify prerequisites
+        run: |
+          node -v
+          docker --version
+          docker compose version || true
+
+      - name: Generate tokens (writes demo/.env.demo)
+        run: |
+          chmod +x ./scripts/generate-tokens.sh
+          ./scripts/generate-tokens.sh
+
+      - name: Build demo images
+        run: |
+          chmod +x ./scripts/build-images.sh
+          ./scripts/build-images.sh
+
+      - name: Start docker-compose demo
+        run: |
+          docker compose -f docker-compose.demo.yml up -d --build
+
+      - name: Wait for services healthy
+        run: |
+          set -e
+          for i in {1..30}; do
+            if curl -sSf http://localhost:3000/health >/dev/null 2>&1 && curl -sSf http://localhost:8000/ >/dev/null 2>&1; then
+              echo "services healthy"
+              exit 0
+            fi
+            echo "waiting for services... ($i)"
+            sleep 2
+          done
+          echo "services not healthy after timeout" >&2
+          docker compose -f docker-compose.demo.yml logs --no-color --tail=200
+          exit 1
+
+      - name: Run authenticated API test
+        env:
+          JWT_SECRET: ${{ env.JWT_SECRET }}
+        run: |
+          set -euo pipefail
+          source demo/.env.demo || true
+          echo "Using JWT_SECRET=$JWT_SECRET"
+          ADMIN_JWT=$(node scripts/generate-jwt.js admin "$JWT_SECRET")
+          echo "Creating a demo task (authenticated request)"
+          curl -v -S -f -X POST http://localhost:3000/api/v1/tasks \
+            -H "Authorization: Bearer $ADMIN_JWT" \
+            -H "Content-Type: application/json" \
+            -d '{"id":"ci-demo-task","intervalMs":60000}'
+
+      - name: Create patch via mobile API
+        env:
+          APPLY_SECRET: my-e2e-secret
+        run: |
+          set -euo pipefail
+          # create a small file content via /mobile/patch
+          TS=$(date +%s)
+          PATCH_RESP=$(curl -sS -X POST http://localhost:3000/mobile/patch -H "Content-Type: application/json" -d "{ \"filename\": \"E2E_APPLIED_${TS}.md\", \"content\": \"E2E demo applied at ${TS}\" }")
+          echo "patch response: $PATCH_RESP"
+          PATCH_FILE=$(echo "$PATCH_RESP" | jq -r .path)
+          echo "patch file: $PATCH_FILE"
+
+      - name: Apply patch via mobile API
+        env:
+          APPLY_SECRET: my-e2e-secret
+        run: |
+          set -euo pipefail
+          # read the last created patch file
+          LAST=$(ls -t .ai_requests/patch-* | head -n1)
+          echo "Applying patch $LAST"
+          # call apply endpoint with secret
+          curl -sS -X POST http://localhost:3000/mobile/apply \
+            -H "Content-Type: application/json" \
+            -H "X-Apply-Secret: ${APPLY_SECRET}" \
+            -d "{ \"patchFile\": \"$(basename "$LAST")\" }"
+
+      - name: Verify applied file exists on host
+        run: |
+          set -euo pipefail
+          LS=$(ls -1 E2E_APPLIED_*.md || true)
+          echo "Applied files: $LS"
+          if [ -z "$LS" ]; then
+            echo "No applied file found" >&2
+            docker compose -f docker-compose.demo.yml logs --no-color --tail=200
+            exit 5
+          fi
+
+      - name: Teardown docker-compose (always)
+        if: always()
+        run: |
+          docker compose -f docker-compose.demo.yml down --volumes --remove-orphans

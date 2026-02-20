@@ -1,0 +1,86 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Mobile Control & AI</title>
+    <style>
+      body{font-family:system-ui,Helvetica,Arial;margin:0;padding:0}
+      .app{padding:12px;max-width:720px;margin:0 auto}
+      #chat{height:60vh;border:1px solid #ddd;padding:8px;overflow:auto;background:#fafafa}
+      .row{display:flex;gap:8px;margin-top:8px}
+      input,button,textarea{font-size:16px}
+      textarea{width:100%;height:100px}
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <h2>Mobile Control & AI</h2>
+      <div>
+        <label>Backend base URL (e.g. http://localhost:3000)</label>
+        <input id="backend" placeholder="http://localhost:3000" style="width:100%" />
+      </div>
+      <div id="chat"></div>
+      <div class="row">
+        <input id="msg" placeholder="Say something to the assistant" />
+        <button id="send">Send</button>
+      </div>
+
+      <h3>Create Patch</h3>
+      <div>
+        <input id="patch-file" placeholder="filename (relative path)" style="width:100%" />
+        <textarea id="patch-content" placeholder="Patch content / file content"></textarea>
+        <button id="patch-send">Create Patch</button>
+      </div>
+
+      <h3>Actions</h3>
+      <div class="row">
+        <button data-action="generate-tokens">Generate Tokens</button>
+        <button data-action="build-images">Build Images</button>
+        <button data-action="demo-up">Start Demo</button>
+      </div>
+
+      <div style="margin-top:12px;color:#666">This is an interface to send requests to the substrate mobile API. Patches are saved under <code>.ai_requests/</code>.</div>
+    </div>
+
+    <script>
+      const chatEl = document.getElementById('chat');
+      const backendInput = document.getElementById('backend');
+      backendInput.value = location.protocol + '//' + location.hostname + ':3000';
+
+      function append(text, cls){
+        const d=document.createElement('div');d.textContent=text; if(cls) d.className=cls; chatEl.appendChild(d); chatEl.scrollTop = chatEl.scrollHeight;
+      }
+
+      async function post(path, body){
+        const base = (document.getElementById('backend').value || '').replace(/\/$/, '');
+        const url = base + path;
+        const res = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+        return res.json();
+      }
+
+      document.getElementById('send').onclick = async () => {
+        const msg = document.getElementById('msg').value;
+        if(!msg) return;
+        append('You: ' + msg);
+        const r = await post('/mobile/chat', { message: msg });
+        append('Assistant: ' + (r.reply || JSON.stringify(r)));
+        document.getElementById('msg').value = '';
+      };
+
+      document.getElementById('patch-send').onclick = async () => {
+        const filename = document.getElementById('patch-file').value; const content = document.getElementById('patch-content').value;
+        if(!filename || !content){ alert('provide filename and content'); return }
+        append('Creating patch: ' + filename);
+        const r = await post('/mobile/patch', { filename, content });
+        append('Server: ' + (r.path || JSON.stringify(r)));
+      };
+
+      document.querySelectorAll('button[data-action]').forEach(b=>b.addEventListener('click', async e=>{
+        const a = e.target.dataset.action; append('Action: ' + a);
+        const r = await post('/mobile/action', { action: a });
+        append('Queued: ' + JSON.stringify(r.queued || r));
+      }));
+    </script>
+  </body>
+</html>

@@ -1,0 +1,12 @@
+node_modules/
+**/node_modules/
+*.log
+.env
+demo/.env.demo
+MCCSS--main/node_modules/
+Edenfield-main/node_modules/
+/.vscode/
+.DS_Store
+dist/
+coverage/
+*.tgz
