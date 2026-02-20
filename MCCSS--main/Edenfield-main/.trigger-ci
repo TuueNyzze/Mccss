@@ -1,0 +1,5 @@
+CI trigger file
+
+This empty file is intended to be committed and pushed to trigger the CI workflow when run.
+
+To trigger CI and verify installs/tests/seed run locally, commit and push this repository.

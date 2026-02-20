@@ -43,6 +43,8 @@ app.get('/metrics', async (req, res) => {
 });
 
 // Readiness API (demo/readiness engine)
+const auth = jwtAuth();
+
 app.get('/api/v1/demo/readiness', auth, (req, res) => {
   try {
     const r = readiness.computeReadiness();
@@ -64,7 +66,6 @@ app.use((req, res, next) => {
 });
 
 // Simple task endpoints (protected)
-const auth = jwtAuth();
 
 app.post('/api/v1/tasks', auth, validateTaskPayload, (req, res) => {
   const { id, intervalMs } = req.body || {};
