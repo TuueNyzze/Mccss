@@ -210,6 +210,7 @@ const EdenFieldConfig = {
 };
 
 // Export for use in other modules
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = EdenFieldConfig;
-}
+export default EdenFieldConfig;
+
+// For backwards-compatibility with CommonJS consumers (rare in this codebase)
+export { EdenFieldConfig };

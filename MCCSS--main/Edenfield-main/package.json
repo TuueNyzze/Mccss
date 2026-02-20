@@ -12,6 +12,7 @@
     "dev": "npx http-server -p 8000 -c-1",
     "dev:watch": "node ./bin/watch-build.js",
     "start:admin": "node ./bin/admin-server.js",
+    "start:server": "node ./server.js",
     "build": "echo 'Build process goes here'",
     "lint": "eslint .",
     "test": "jest --detectOpenHandles --runInBand",

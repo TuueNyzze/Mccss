@@ -17,14 +17,14 @@ export const Enforcement = {
     const role = Roles.get(ctx.role);
     if (!role) return false;
 
-    if (role.capabilities.includes(capability)) {
+    if (role && role.capabilities && role.capabilities.includes(capability)) {
       // if capability relates to data and an organism is specified, verify scope
       if (opts.organism) {
         // direct organism match
         if (ctx.organism === opts.organism) return true;
 
         // lease-based admin: subjectId can be owner of the organism
-        if (ctx.subjectId && LeaseManager.isOwnerOfSync && LeaseManager.isOwnerOfSync(ctx.subjectId, opts.organism)) return true;
+        if (ctx.subjectId && LeaseManager && typeof LeaseManager.isOwnerOfSync === 'function' && LeaseManager.isOwnerOfSync(ctx.subjectId, opts.organism)) return true;
 
         return false;
       }
