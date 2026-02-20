@@ -1,0 +1,45 @@
+openapi: 3.0.1
+info:
+  title: Eden Field Demo API
+  version: 1.0.0
+paths:
+  /health:
+    get:
+      summary: Health check
+      responses:
+        '200':
+          description: OK
+  /metrics:
+    get:
+      summary: Prometheus metrics
+      responses:
+        '200':
+          description: Metrics
+  /api/v1/tasks:
+    get:
+      summary: List scheduled tasks
+      responses:
+        '200':
+          description: OK
+    post:
+      summary: Schedule a new task
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id:
+                  type: string
+                intervalMs:
+                  type: integer
+      responses:
+        '200':
+          description: Scheduled
+  /api/v1/demo/readiness:
+    get:
+      summary: Compute readiness score for demo
+      responses:
+        '200':
+          description: Readiness returned

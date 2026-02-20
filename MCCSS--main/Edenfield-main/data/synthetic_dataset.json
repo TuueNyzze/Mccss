@@ -1,0 +1,41 @@
+{
+  "documents": [
+    {
+      "id": "doc-001",
+      "title": "Test Document 1",
+      "ownerId": "user-1",
+      "organismId": "org-1",
+      "content": "Lorem ipsum dolor sit amet.",
+      "createdAt": "2026-02-20T00:00:00.000Z",
+      "updatedAt": "2026-02-20T00:00:00.000Z"
+    },
+    {
+      "id": "doc-002",
+      "title": "Test Document 2",
+      "ownerId": "user-2",
+      "organismId": "org-1",
+      "content": "Consectetur adipiscing elit.",
+      "createdAt": "2026-02-20T00:01:00.000Z",
+      "updatedAt": "2026-02-20T00:01:00.000Z"
+    },
+    {
+      "id": "doc-003",
+      "title": "Public Notice",
+      "ownerId": "user-3",
+      "organismId": "org-2",
+      "content": "Public data entry for tests.",
+      "createdAt": "2026-02-20T00:02:00.000Z",
+      "updatedAt": "2026-02-20T00:02:00.000Z"
+    }
+  ],
+  "tables": {
+    "users": {
+      "schema": { "id": { "type": "string" }, "name": { "type": "string" } },
+      "rows": [
+        { "id": "user-1", "name": "Alice" },
+        { "id": "user-2", "name": "Bob" },
+        { "id": "user-3", "name": "Carol" }
+      ]
+    }
+  }
+}

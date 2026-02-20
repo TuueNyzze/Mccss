@@ -3,14 +3,13 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import pino from 'pino';
 import promClient from 'prom-client';
-import config from './config.js';
-import { fetchSecretFromVault } from '../core/vault.js';
+import config from './Edenfield-main/config.js';
+import { fetchSecretFromVault } from './core/vault.js';
 import { Engine } from './core/task-engine.js';
 import { jwtAuth } from './core/middleware/auth.js';
 import { validateTaskPayload } from './core/middleware/validation.js';
 import { registerSyncTask } from './core/tasks/sync-task.js';
 import governance from './core/governance.js';
-import readiness from './core/readiness.js';
 
 const logger = pino({ level: process.env.LOG_LEVEL || 'info' });
 
@@ -41,19 +40,6 @@ app.get('/metrics', async (req, res) => {
   res.set('Content-Type', promClient.register.contentType);
   res.end(await promClient.register.metrics());
 });
-
-// Readiness API (demo/readiness engine)
-app.get('/api/v1/demo/readiness', auth, (req, res) => {
-  try {
-    const r = readiness.computeReadiness();
-    res.json({ ok: true, readiness: r });
-  } catch (e) {
-    res.status(500).json({ ok: false, error: String(e) });
-  }
-});
-
-// Serve demo cockpit static files
-app.use('/cockpit', express.static(new URL('./demo', import.meta.url).pathname));
 
 // Audit middleware: log important request metadata
 app.use((req, res, next) => {

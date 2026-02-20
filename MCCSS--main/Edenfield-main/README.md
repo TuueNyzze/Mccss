@@ -1,3 +1,20 @@
+# Eden Field (merged)
+
+Minimal instructions to run the substrate server and seed data.
+
+Run locally:
+
+```bash
+cd MCCSS--main/Edenfield-main
+npm ci
+npm run seed:data
+npm run start:server
+```
+
+Health: GET /health
+Metrics: GET /metrics
+
+Use `.env.example` as a template for runtime environment variables.
 # Eden Field
 
 Eden Field is a distributed substrate with identity, sync, and governance features.

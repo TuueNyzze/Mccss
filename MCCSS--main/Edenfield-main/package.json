@@ -13,9 +13,12 @@
     "dev:watch": "node ./bin/watch-build.js",
     "start:admin": "node ./bin/admin-server.js",
     "start:server": "node ./server.js",
+    "seed:data": "node ./scripts/seed_synthetic.js",
+    "test:unit": "node ./scripts/run-unit-tests.js",
     "build": "echo 'Build process goes here'",
     "lint": "eslint .",
     "test": "jest --detectOpenHandles --runInBand",
+    "test:unit": "node ./scripts/run-unit-tests.js",
     "analyze": "npx lighthouse http://localhost:8000"
   },
   "keywords": [

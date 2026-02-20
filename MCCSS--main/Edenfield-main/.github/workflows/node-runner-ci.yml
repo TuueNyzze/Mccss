@@ -1,0 +1,19 @@
+name: Node Runner CI
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  run-unit:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: MCCSS--main/Edenfield-main
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      - run: npm ci
+      - run: npm run test:unit

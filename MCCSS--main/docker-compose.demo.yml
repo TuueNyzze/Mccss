@@ -1,0 +1,14 @@
+version: '3.8'
+services:
+  edenfield-demo:
+    build:
+      context: MCCSS--main
+      dockerfile: Dockerfile
+    ports:
+      - '3000:3000'
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - NO_AUTH=1
+    volumes:
+      - ./MCCSS--main:/app
