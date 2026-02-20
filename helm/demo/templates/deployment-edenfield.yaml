@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "mccss-demo.fullname" . }}-edenfield
+  labels:
+    app: {{ include "mccss-demo.name" . }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: edenfield
+  template:
+    metadata:
+      labels:
+        app: edenfield
+    spec:
+      containers:
+        - name: edenfield
+          image: "{{ .Values.edenfield.image.repository }}:{{ .Values.edenfield.image.tag }}"
+          ports:
+            - containerPort: {{ .Values.service.edenfieldPort }}
+          env:
+            - name: ADMIN_PORT
+              value: "9321"
+            - name: ADMIN_API_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: demo-admin-token
+                  key: token

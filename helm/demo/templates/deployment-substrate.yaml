@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "mccss-demo.fullname" . }}-substrate
+  labels:
+    app: {{ include "mccss-demo.name" . }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: substrate
+  template:
+    metadata:
+      labels:
+        app: substrate
+    spec:
+      containers:
+        - name: substrate
+          image: "{{ .Values.substrate.image.repository }}:{{ .Values.substrate.image.tag }}"
+          ports:
+            - containerPort: {{ .Values.service.substratePort }}
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: {{ .Values.service.substratePort }}
+            initialDelaySeconds: 5
+            periodSeconds: 10

@@ -1,0 +1,24 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "mccss-demo.fullname" . }}-service
+spec:
+  type: {{ .Values.service.type }}
+  selector:
+    app: substrate
+  ports:
+    - port: {{ .Values.service.substratePort }}
+      targetPort: {{ .Values.service.substratePort }}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "mccss-demo.fullname" . }}-edenfield
+spec:
+  type: {{ .Values.service.type }}
+  selector:
+    app: edenfield
+  ports:
+    - port: {{ .Values.service.edenfieldPort }}
+      targetPort: {{ .Values.service.edenfieldPort }}

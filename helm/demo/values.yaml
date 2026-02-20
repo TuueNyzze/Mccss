@@ -1,0 +1,20 @@
+replicaCount: 1
+
+substrate:
+  image:
+    repository: ghcr.io/OWNER/mccss-substrate
+    tag: demo
+
+edenfield:
+  image:
+    repository: ghcr.io/OWNER/edenfield-admin
+    tag: demo
+
+ingress:
+  enabled: false
+  host: mccss.local
+
+service:
+  type: ClusterIP
+  substratePort: 3000
+  edenfieldPort: 8000

@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: edenfield-admin
+  labels:
+    app: edenfield-admin
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: edenfield-admin
+  template:
+    metadata:
+      labels:
+        app: edenfield-admin
+    spec:
+      containers:
+        - name: edenfield
+          image: edenfield-admin:demo
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+            - containerPort: 9321
+          env:
+            - name: NODE_ENV
+              value: "production"
+            - name: ADMIN_PORT
+              value: "9321"
+            - name: ADMIN_API_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: demo-admin-token
+                  key: token

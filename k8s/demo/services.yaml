@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: mccss-substrate
+spec:
+  selector:
+    app: mccss-substrate
+  ports:
+    - protocol: TCP
+      port: 3000
+      targetPort: 3000
+  type: ClusterIP
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: edenfield-admin
+spec:
+  selector:
+    app: edenfield-admin
+  ports:
+    - protocol: TCP
+      port: 8000
+      targetPort: 8000
+    - protocol: TCP
+      port: 9321
+      targetPort: 9321
+  type: ClusterIP
