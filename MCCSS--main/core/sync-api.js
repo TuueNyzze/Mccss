@@ -1,6 +1,6 @@
 // core/sync-api.js
 
-import config from '../config.js';
+import config from '../Edenfield-main/config.js';
 
 const DEFAULT_BASE = 'https://edenfield-sync.example.com';
 const BASE = (config && config.api && config.api.base_url) ? config.api.base_url.replace(/\/$/, '') : DEFAULT_BASE;

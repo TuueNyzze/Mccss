@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import pino from 'pino';
-import config from '../config.js';
+import config from '../Edenfield-main/config.js';
 
 const logger = pino({ level: process.env.LOG_LEVEL || 'info' });
 
