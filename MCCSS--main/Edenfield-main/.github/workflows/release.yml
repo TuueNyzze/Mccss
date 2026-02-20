@@ -1,0 +1,37 @@
+name: Release
+
+on:
+  workflow_dispatch:
+
+jobs:
+  pack:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18.x
+
+      - name: Install dependencies and pack
+        working-directory: Edenfield-main
+        run: |
+          # remove any previous package artifacts to avoid ambiguity
+          rm -f *.tgz || true
+          npm ci --prefer-offline --no-audit
+          npm pack
+
+      - name: Find packed artifact
+        id: find
+        run: |
+          set -e
+          ARTIFACT=$(ls Edenfield-main/*.tgz | head -n1 || true)
+          if [ -z "$ARTIFACT" ]; then echo "No artifact produced"; exit 1; fi
+          echo "artifact=$ARTIFACT" >> $GITHUB_OUTPUT
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: edenfield-package
+          path: ${{ steps.find.outputs.artifact }}
