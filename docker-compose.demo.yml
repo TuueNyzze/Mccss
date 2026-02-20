@@ -9,10 +9,16 @@ services:
       - NODE_ENV=production
       - PORT=3000
       - ADMIN_PORT=9321
+      - JWT_SECRET=${JWT_SECRET:-dev-secret}
     ports:
       - "3000:3000"
     volumes:
       - ./MCCSS--main:/app:cached
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/health || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
   edenfield-admin:
     build:
@@ -23,12 +29,23 @@ services:
       - NODE_ENV=production
       - ADMIN_API_TOKEN=${ADMIN_API_TOKEN}
       - ADMIN_PORT=9321
+    depends_on:
+      substrate:
+        condition: service_started
     ports:
       - "8000:8000"
       - "9321:9321"
     volumes:
       - ./MCCSS--main/Edenfield-main:/app/Edenfield-main:cached
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/ || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
 networks:
   default:
     name: mccss-demo-net
+
+env_file:
+  - demo/.env.demo

@@ -1,0 +1,5 @@
+demo/run-demo.sh text eol=lf
+demo/prove-e2e.sh text eol=lf
+run-all.sh text eol=lf
+scripts/*.sh text eol=lf
+local/*.sh text eol=lf

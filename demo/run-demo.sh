@@ -8,8 +8,13 @@ set -euo pipefail
 COMPOSE_FILE="../docker-compose.demo.yml"
 cd "$(dirname "$0")"
 
+# Load env file if present
+if [ -f .env.demo ]; then
+  export $(grep -v '^#' .env.demo | xargs)
+fi
+
 if [ -z "${ADMIN_API_TOKEN-}" ]; then
-  echo "Please set ADMIN_API_TOKEN environment variable, e.g. ADMIN_API_TOKEN=demo-token" >&2
+  echo "Please set ADMIN_API_TOKEN environment variable, e.g. ADMIN_API_TOKEN=demo-token, or run ../scripts/generate-tokens.sh" >&2
   exit 1
 fi
 

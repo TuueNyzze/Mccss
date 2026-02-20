@@ -26,7 +26,18 @@ else
 fi
 
 echo
+DEMO_ENV_FILE="demo/.env.demo"
+mkdir -p demo
+cat > "$DEMO_ENV_FILE" <<EOF
+ADMIN_API_TOKEN=$ADMIN_API_TOKEN
+JWT_SECRET=$JWT_SECRET
+EOF
+
+echo "Wrote demo env file: $DEMO_ENV_FILE"
+echo
 echo "To use these tokens locally (docker-compose demo):"
-echo "  ADMIN_API_TOKEN=$ADMIN_API_TOKEN ./demo/run-demo.sh"
+echo "  # loads ADMIN_API_TOKEN and JWT_SECRET from $DEMO_ENV_FILE"
+echo "  ./demo/run-demo.sh"
+echo
 echo "To call protected API endpoints (example):"
 echo "  curl -H \"Authorization: Bearer $ADMIN_JWT\" http://localhost:3000/api/v1/tasks"
