@@ -1,0 +1,17 @@
+{
+  "name": "sovereign-gate",
+  "version": "1.0.0",
+  "description": "Compiler/verifier prototype for the MONOLITH.DELTA one-way sovereign gate spec",
+  "type": "module",
+  "private": true,
+  "bin": {
+    "sovereign-gate": "./src/cli.js"
+  },
+  "scripts": {
+    "compile": "node ./src/cli.js compile spec/monolith.delta.spec",
+    "test": "node ./tests/compile.test.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
