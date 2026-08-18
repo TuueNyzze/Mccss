@@ -13,7 +13,9 @@
 // INPUTS, others (VERIFY_ONEWAY, SEAL_FRAME) declare descriptive INPUTS
 // and already hardcode concrete registers in their ASM bodies.
 
-const REGISTER_RE = /^r\d{1,2}$/i;
+// Matches a leading concrete register in an INPUT's declared value, e.g.
+// "r7" or the annotated "r6 (persistent watchdog state — ...)".
+const REGISTER_RE = /^r\d{1,2}\b/i;
 
 export function compileAction(ast, actionName) {
   const action = ast.actions[actionName];
@@ -46,8 +48,9 @@ export function compileAction(ast, actionName) {
 function buildSubstitutions(primitive, call) {
   const subs = {};
   for (const [name, defaultValue] of Object.entries(primitive.inputs)) {
-    if (REGISTER_RE.test(String(defaultValue).trim())) {
-      subs[name] = defaultValue;
+    const regMatch = String(defaultValue).trim().match(REGISTER_RE);
+    if (regMatch) {
+      subs[name] = regMatch[0];
     } else {
       subs[name] = {
         unresolved: name,

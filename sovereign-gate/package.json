@@ -9,6 +9,7 @@
   },
   "scripts": {
     "compile": "node ./src/cli.js compile spec/monolith.delta.spec",
+    "compile:hardened": "node ./src/cli.js compile spec/monolith.delta.hardened.spec SecureStateTransitionHardened --out build-hardened",
     "test": "node ./tests/compile.test.js"
   },
   "engines": {

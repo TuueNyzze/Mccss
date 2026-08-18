@@ -8,6 +8,7 @@ import { checkInvariants } from '../src/invariants.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const specText = fs.readFileSync(path.join(__dirname, '../spec/monolith.delta.spec'), 'utf8');
+const hardenedText = fs.readFileSync(path.join(__dirname, '../spec/monolith.delta.hardened.spec'), 'utf8');
 
 function testParsesWorldMetadata() {
   const ast = parseSpec(specText);
@@ -50,10 +51,31 @@ function testCompilesSecureStateTransition() {
   );
 }
 
-function testCanonicalSpecHasNoInvariantViolations() {
+// The canonical v1.0.0 spec, taken literally, has two real register-bleed
+// bugs found by manual review and confirmed by the (now register-flow-
+// based, not just pattern-matched) invariant checker:
+//   - VERIFY_ONEWAY never zeroes r0/r4, which hold the fully-mixed
+//     permutation value right up to the CMP.
+//   - ASSERT_LINEAGE_ONEWAY has no bleed epilogue at all, and never
+//     documents that LAST_GOOD_REG (r6) is meant to persist across
+//     calls — so the checker can't tell that gap apart from a real leak,
+//     and correctly flags both r6 and r7.
+// This test locks in that finding rather than asserting a clean spec.
+// See spec/monolith.delta.hardened.spec for the fix.
+function testCanonicalSpecHasKnownRegisterBleedGaps() {
   const ast = parseSpec(specText);
   const violations = checkInvariants(ast);
-  assert.deepEqual(violations, [], `expected no violations, got: ${JSON.stringify(violations, null, 2)}`);
+
+  assert.equal(violations.length, 2, `expected exactly 2 known violations, got: ${JSON.stringify(violations, null, 2)}`);
+  assert.ok(violations.every((v) => v.invariant === 'Register_Bleed_After_Verify'));
+
+  const verifyViolation = violations.find((v) => v.message.includes('VERIFY_ONEWAY'));
+  assert.ok(verifyViolation, 'expected a VERIFY_ONEWAY violation');
+  assert.ok(verifyViolation.message.includes('r0') && verifyViolation.message.includes('r4'));
+
+  const assertViolation = violations.find((v) => v.message.includes('ASSERT_LINEAGE_ONEWAY'));
+  assert.ok(assertViolation, 'expected an ASSERT_LINEAGE_ONEWAY violation');
+  assert.ok(assertViolation.message.includes('r7') && assertViolation.message.includes('r6'));
 }
 
 function testDetectsOneWayViolation() {
@@ -71,8 +93,62 @@ function testDetectsMissingRegisterBleed() {
   ast.primitives.VERIFY_ONEWAY.expandsTo.core1 = ast.primitives.VERIFY_ONEWAY.expandsTo.core1.slice(0, -5);
   const violations = checkInvariants(ast);
   assert.ok(
-    violations.some((v) => v.invariant === 'Register_Bleed_After_Verify'),
-    'expected Register_Bleed_After_Verify violation to be detected'
+    violations.some((v) => v.invariant === 'Register_Bleed_After_Verify' && v.message.includes('VERIFY_ONEWAY')),
+    'expected Register_Bleed_After_Verify violation to be detected once the epilogue is removed entirely'
+  );
+}
+
+// --- Hardened spec: everything above, fixed --------------------------
+
+function testHardenedSpecParsesAndAddsKeyBank() {
+  const ast = parseSpec(hardenedText);
+  assert.equal(ast.version, '1.1.0');
+  assert.equal(Object.keys(ast.memoryBanks).length, 7, 'expected 7 memory banks (adds BANK6_KEY)');
+  assert.ok(ast.primitives.TRIGGER_SOFT_ANOMALY, 'TRIGGER_SOFT_ANOMALY primitive missing');
+  assert.ok(ast.primitives.VAULT_VIOLATION, 'VAULT_VIOLATION primitive missing');
+}
+
+function testHardenedSpecHasNoInvariantViolations() {
+  const ast = parseSpec(hardenedText);
+  const violations = checkInvariants(ast);
+  assert.deepEqual(violations, [], `expected no violations, got: ${JSON.stringify(violations, null, 2)}`);
+}
+
+function testHardenedCompileFixesRegisterBleed() {
+  const ast = parseSpec(hardenedText);
+  const compiled = compileAction(ast, 'SecureStateTransitionHardened');
+
+  const verifyBlock = compiled.cores.core1.find((b) => b.primitive === 'VERIFY_ONEWAY');
+  for (const reg of ['r0', 'r1', 'r2', 'r3', 'r4', 'r7']) {
+    assert.ok(
+      verifyBlock.instructions.some((i) => i.trim() === `MOVS ${reg}, #0`),
+      `expected VERIFY_ONEWAY to zero ${reg}`
+    );
+  }
+
+  const assertBlock = compiled.cores.core1.find((b) => b.primitive === 'ASSERT_LINEAGE_ONEWAY');
+  assert.ok(
+    assertBlock.instructions.some((i) => i.trim() === 'MOVS r7, #0'),
+    'expected the transient counter register (r7) to be bled'
+  );
+  assert.ok(
+    !assertBlock.instructions.some((i) => i.trim() === 'MOVS r6, #0'),
+    'expected the persistent watchdog register (r6) to be left alone'
+  );
+}
+
+function testAnomalyOnlyBank4IsNowMeaningful() {
+  const ast = parseSpec(hardenedText);
+  // Sanity: the real anomaly-path primitives already touch BANK4 and are correctly exempted.
+  assert.deepEqual(checkInvariants(ast), []);
+
+  // Now make a non-anomaly primitive touch BANK4 and confirm the check catches it —
+  // proving Anomaly_Only_BANK4 is no longer vacuous now that BANK4 has real writers.
+  ast.primitives.SEAL_FRAME.expandsTo.core0.push('STR  r0, [r0, #0]  // BANK4_ANOM_ORIGIN');
+  const violations = checkInvariants(ast);
+  assert.ok(
+    violations.some((v) => v.invariant === 'Anomaly_Only_BANK4' && v.message.includes('SEAL_FRAME')),
+    'expected a non-anomaly primitive touching BANK4 to be flagged'
   );
 }
 
@@ -81,9 +157,13 @@ function run() {
     testParsesWorldMetadata,
     testParsesFramesAndPrimitives,
     testCompilesSecureStateTransition,
-    testCanonicalSpecHasNoInvariantViolations,
+    testCanonicalSpecHasKnownRegisterBleedGaps,
     testDetectsOneWayViolation,
-    testDetectsMissingRegisterBleed
+    testDetectsMissingRegisterBleed,
+    testHardenedSpecParsesAndAddsKeyBank,
+    testHardenedSpecHasNoInvariantViolations,
+    testHardenedCompileFixesRegisterBleed,
+    testAnomalyOnlyBank4IsNowMeaningful
   ];
 
   let failed = 0;

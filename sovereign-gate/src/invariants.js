@@ -33,24 +33,121 @@ function checkOneWayDataFlow(ast, violations) {
   }
 }
 
+// --- Register_Bleed_After_Verify -------------------------------------
+//
+// The invariant's own text names exactly two primitives: "Every
+// VERIFY_ONEWAY or ASSERT_LINEAGE_ONEWAY expansion must end with a
+// mandatory register-bleed epilogue that zeroes all intermediate
+// registers used in the permutation." So this check is scoped to those
+// two primitives by exact name, not a fuzzy match.
+//
+// A register is considered "used in the permutation" if it is (a) written
+// during the mix/compare phase (everything before the decision branch),
+// or (b) read as an operand of the CMP that feeds that branch — even if
+// it was never freshly computed here (e.g. a value passed in by the
+// caller). A primitive's own INPUTS can mark a register as intentionally
+// persistent/stateful (its declared value contains the word
+// "persistent") — that register is exempt, since zeroing it would break
+// the very state the primitive is designed to carry across calls (e.g.
+// ASSERT_LINEAGE_ONEWAY's last-known-good counter).
+//
+// "Bled" is computed with a simple forward dataflow pass over the
+// instructions after the branch: a register is zero if the last
+// instruction to write it was an immediate `MOVS rX, #0`, or a
+// register-to-register MOV/MOVS copying from a register that was zero at
+// that point. Any other write marks it non-zero again.
+
+const WRITE_RE = /^(LDR[BH]?|EORS?|LSLS|LSRS|ORRS?|ANDS?|ADDS?|SUBS?|MOVS?|RORS?)\s+r(\d+)\b/i;
+const BRANCH_RE = /^B(NE|LS|EQ|CS|CC|LE|GE|LT|GT|HI|LO)\b/i;
+const CMP_RE = /^CMP\s+r(\d+)\s*,\s*(\S+)/i;
+const ZERO_RE = /^MOVS?\s+r(\d+)\s*,\s*#0\b/i;
+const REG_MOV_RE = /^MOVS?\s+r(\d+)\s*,\s*r(\d+)\b/i;
+const REGISTER_PREFIX_RE = /^r\d+/i;
+
+function substitutePlaceholders(instr, primitive) {
+  let out = instr;
+  for (const [name, value] of Object.entries(primitive.inputs)) {
+    const regMatch = String(value).trim().match(REGISTER_PREFIX_RE);
+    if (!regMatch) continue;
+    out = out.replace(new RegExp(`\\b${name}\\b`, 'g'), regMatch[0]);
+  }
+  return out;
+}
+
+function extractExemptRegisters(primitive) {
+  const exempt = new Set();
+  for (const value of Object.values(primitive.inputs)) {
+    const m = String(value).match(/^r(\d+)\b.*persistent/i);
+    if (m) exempt.add(`r${m[1]}`);
+  }
+  return exempt;
+}
+
+function computeMixRegisters(mixPhase, exempt) {
+  const regs = new Set();
+  let lastCmp = null;
+  for (const instr of mixPhase) {
+    const write = instr.match(WRITE_RE);
+    if (write) regs.add(`r${write[2]}`);
+    const cmp = instr.match(CMP_RE);
+    if (cmp) lastCmp = cmp;
+  }
+  if (lastCmp) {
+    regs.add(`r${lastCmp[1]}`);
+    if (/^r\d+$/i.test(lastCmp[2])) regs.add(lastCmp[2].toLowerCase());
+  }
+  for (const reg of exempt) regs.delete(reg);
+  return regs;
+}
+
+function computeBledRegisters(epilogue) {
+  const isZero = new Map();
+  for (const instr of epilogue) {
+    const zero = instr.match(ZERO_RE);
+    if (zero) {
+      isZero.set(`r${zero[1]}`, true);
+      continue;
+    }
+    const mov = instr.match(REG_MOV_RE);
+    if (mov) {
+      isZero.set(`r${mov[1]}`, !!isZero.get(`r${mov[2]}`));
+      continue;
+    }
+    const write = instr.match(WRITE_RE);
+    if (write) isZero.set(`r${write[2]}`, false);
+  }
+  return new Set([...isZero.entries()].filter(([, z]) => z).map(([r]) => r));
+}
+
 function checkRegisterBleed(ast, violations) {
-  for (const [name, primitive] of Object.entries(ast.primitives)) {
-    if (!/VERIFY_ONEWAY/i.test(name)) continue;
+  for (const primName of ['VERIFY_ONEWAY', 'ASSERT_LINEAGE_ONEWAY']) {
+    const primitive = ast.primitives[primName];
+    if (!primitive) continue;
+    const exempt = extractExemptRegisters(primitive);
+
     for (const coreKey of ['core0', 'core1']) {
-      const instrs = primitive.expandsTo[coreKey];
-      if (!instrs || instrs.length === 0) continue;
-      if (!endsWithBleed(instrs)) {
+      const rawInstrs = primitive.expandsTo[coreKey];
+      if (!rawInstrs || rawInstrs.length === 0) continue;
+      const instrs = rawInstrs.map((i) => substitutePlaceholders(i, primitive));
+
+      const branchIdx = instrs.findIndex((i) => BRANCH_RE.test(i.trim()));
+      if (branchIdx === -1) continue; // no decision branch in this core's expansion
+
+      const mixPhase = instrs.slice(0, branchIdx);
+      const epilogue = instrs.slice(branchIdx + 1);
+
+      const mixRegisters = computeMixRegisters(mixPhase, exempt);
+      const bledRegisters = computeBledRegisters(epilogue);
+      const missing = [...mixRegisters].filter((r) => !bledRegisters.has(r));
+
+      if (missing.length > 0) {
         violations.push({
           invariant: 'Register_Bleed_After_Verify',
-          message: `PRIMITIVE ${name} (${coreKey}) does not end with a register-bleed epilogue`
+          message: `PRIMITIVE ${primName} (${coreKey}) leaves register(s) ${missing.join(', ')} unbled after the permutation/comparison`
         });
       }
     }
   }
-}
-
-function endsWithBleed(instrs) {
-  return instrs.slice(-5).some((i) => /^MOVS\s+r\d+,\s*#0/i.test(i.trim()));
 }
 
 function checkFramesInBank2(ast, violations) {
